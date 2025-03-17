@@ -5,7 +5,7 @@ matplotlib
 mlflow
 streamlit-drawable-canvas==0.9.3
 pillow
-numpy 
+numpy
 seaborn
 tensorflow
 opencv-python-headless
@@ -14,11 +14,7 @@ dagshub
 plotly
 kaleido
 streamlit-option-menu
-<<<<<<< HEAD
 opencv-python
 joblib
 scipy
 openml
-matplotlib
-=======
->>>>>>> e5fe0013ee1e5b07dfde283841a0b0810820dd2e
