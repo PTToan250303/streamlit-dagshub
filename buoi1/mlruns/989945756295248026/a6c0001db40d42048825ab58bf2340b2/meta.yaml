@@ -1,0 +1,15 @@
+artifact_uri: file:///D:/CNTT/HocMay/Mlflow_titanic/buoi1/mlruns/989945756295248026/a6c0001db40d42048825ab58bf2340b2/artifacts
+end_time: 1742110998892
+entry_point_name: ''
+experiment_id: '989945756295248026'
+lifecycle_stage: active
+run_id: a6c0001db40d42048825ab58bf2340b2
+run_name: upset-kit-401
+run_uuid: a6c0001db40d42048825ab58bf2340b2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1742110998759
+status: 3
+tags: []
+user_id: phant
