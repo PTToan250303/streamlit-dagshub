@@ -63,11 +63,11 @@ def split_data():
     st.write(f"📌 **Tỷ lệ phân chia:** Test={test_size_percent}%, Validation={val_size_percent}%, Train={train_percent}%")
 
     if st.session_state.data_split_done:
-        if st.button("🔄 Reset & Chia lại"):
+        if st.button("🔄 Reset & Chia lại", key="reset123"):
             st.session_state.data_split_done = False
             st.rerun()
 
-    if st.button("✅ Xác nhận & Lưu"):
+    if st.button("✅ Xác nhận & Lưu", key="reset1234"):
         st.session_state.data_split_done = True
         X_selected, _, y_selected, _ = train_test_split(X, y, train_size=num_samples, stratify=y, random_state=42)
         X_train_full, X_test, y_train_full, y_test = train_test_split(X_selected, y_selected, test_size=test_size, stratify=y_selected, random_state=42)
@@ -111,7 +111,7 @@ def split_data():
 def train():
     if "X_train" not in st.session_state:
         st.error("⚠️ Chưa có dữ liệu! Vui lòng quay lại bước chia dữ liệu trước.")
-        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}))
+        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}),key="back_to_split")
         return
 
     X_train = st.session_state.X_train
@@ -148,7 +148,7 @@ def train():
     mlflow.set_experiment(experiment_name)
     st.write(f"✅ Experiment Name: {experiment_name}")
 
-    if st.button("Huấn luyện mô hình"):
+    if st.button("Huấn luyện mô hình",key="back_to_split1"):
         progress_bar = st.progress(0)
         status_text = st.empty()
         st.session_state["run_name"] = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -235,7 +235,7 @@ def du_doan():
     if "key_value" not in st.session_state:
         st.session_state.key_value = str(np.random.randint(0, 1000000))
 
-    if st.button("🔄 Tải lại nếu không thấy canvas"):
+    if st.button("🔄 Tải lại nếu không thấy canvas",key="back_to_split10"):
         st.session_state.key_value = str(np.random.randint(0, 1000000))
         st.rerun()
 
@@ -251,7 +251,7 @@ def du_doan():
         update_streamlit=True
     )
 
-    if st.button("Dự đoán số"):
+    if st.button("Dự đoán số",key="back_to_split123"):
         img = preprocess_canvas_image(canvas_result)
         if img is not None:
             st.image(Image.fromarray((img.reshape(28, 28) * 255).astype(np.uint8)), caption="Ảnh sau xử lý", width=100)
@@ -367,7 +367,7 @@ def pseudo_labeling():
 
     if "data_split_done" not in st.session_state or "X_train" not in st.session_state:
         st.error("⚠️ Vui lòng chia dữ liệu trước ở tab 'Chia dữ liệu Train/Test'!")
-        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}))
+        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}),key="back_to_split135")
         return
 
     X_train_full = st.session_state.X_train
@@ -395,7 +395,7 @@ def pseudo_labeling():
     learning_rate_init = st.slider("Learning Rate", 0.001, 0.1, 0.01, step=0.001, key="pseudo_learning_rate")
     max_iter = st.slider("Max Iterations", 100, 1000, 500, step=100, key="pseudo_max_iter")
 
-    if st.button("🎬 Bắt đầu Pseudo Labeling"):
+    if st.button("🎬 Bắt đầu Pseudo Labeling",key="back_to_split12345"):
         progress_bar = st.progress(0)
         status_text = st.empty()
 

@@ -74,11 +74,11 @@ def split_data():
     st.write(f"📌 **Tỷ lệ phân chia:** Test={test_size_percent}%, Validation={val_size_percent}%, Train={train_percent}%")
 
     if st.session_state.data_split_done:
-        if st.button("🔄 Reset & Chia lại"):
+        if st.button("🔄 Reset & Chia lại",key="back_to_splitbuoi50"):
             st.session_state.data_split_done = False
             st.rerun()
 
-    if st.button("✅ Xác nhận & Lưu"):
+    if st.button("✅ Xác nhận & Lưu",key="back_to_splitbuoi51"):
         st.session_state.data_split_done = True
         
         X_selected, _, y_selected, _ = train_test_split(
@@ -132,7 +132,7 @@ def split_data():
 def train():
     if "X_train" not in st.session_state:
         st.error("⚠️ Chưa có dữ liệu! Vui lòng quay lại bước chia dữ liệu trước.")
-        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}))
+        st.button("🔙 Quay lại bước chia dữ liệu", on_click=lambda: st.session_state.update({"page": "data_split"}),key="back_to_splitbuoi53")
         return
 
     X_train = st.session_state.X_train
@@ -178,7 +178,7 @@ def train():
     mlflow.set_experiment(experiment_name)
     st.write(f"✅ Experiment Name: {experiment_name}")
 
-    if st.button("Huấn luyện mô hình"):
+    if st.button("Huấn luyện mô hình",key="back_to_splitbuoi54"):
         progress_bar = st.progress(0)
         status_text = st.empty()
         st.session_state["run_name"] = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -303,7 +303,7 @@ def du_doan():
     if "key_value" not in st.session_state:
         st.session_state.key_value = str(random.randint(0, 1000000))
 
-    if st.button("🔄 Tải lại nếu không thấy canvas"):
+    if st.button("🔄 Tải lại nếu không thấy canvas",key="back_to_splitbuoi555"):
         st.session_state.key_value = str(random.randint(0, 1000000))
         st.rerun()
 
@@ -319,7 +319,7 @@ def du_doan():
         update_streamlit=True
     )
 
-    if st.button("Dự đoán số"):
+    if st.button("Dự đoán số",key="back_to_splitbuoi56"):
         img = preprocess_canvas_image(canvas_result)
 
         if img is not None:
