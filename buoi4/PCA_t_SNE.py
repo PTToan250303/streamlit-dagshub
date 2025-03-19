@@ -242,10 +242,12 @@ def input_mlflow():
 
 def thi_nghiem():
     st.title("📉 Giảm chiều dữ liệu MNIST với PCA & t-SNE")
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # Go up one directory from buoi4
+    x_path = os.path.join(base_dir, "buoi2", "X.npy")
 
+    Xmt = np.load(x_path)
+    ymt = np.load(os.path.join(base_dir, "buoi2", "y.npy"))
     # Load dữ liệu
-    Xmt = np.load("buoi2\X.npy")
-    ymt = np.load("buoi2\y.npy")
     X = Xmt.reshape(Xmt.shape[0], -1) 
     y = ymt.reshape(-1) 
 
