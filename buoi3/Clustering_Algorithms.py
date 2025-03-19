@@ -1395,10 +1395,21 @@ def train():
         model = DBSCAN(eps=eps, min_samples=min_samples)
 
     input_mlflow()
-    run_name = st.text_input("🔹 Nhập tên Run:", "Default_Run")
-    st.session_state["run_name"] = run_name if run_name else "default_run"
+    if "experiment_name" not in st.session_state:
+        st.session_state["experiment_name"] = "My_Experiment"
+
+    experiment_name = st.text_input("🔹 Nhập tên Experiment:", st.session_state["experiment_name"], key="experiment_name_input")    
+
+    if experiment_name:
+        st.session_state["experiment_name"] = experiment_name
+
+    mlflow.set_experiment(experiment_name)
+    st.write(f"✅ Experiment Name: {experiment_name}")
 
     if st.button("🚀 Huấn luyện mô hình"):
+        if "run_name" not in st.session_state:
+            st.session_state["run_name"] = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"  # Đặt tên dựa vào thời gian
+
         with mlflow.start_run(run_name=st.session_state["run_name"]):
             model.fit(X_train_pca)
             st.success("✅ Huấn luyện thành công!")
@@ -1479,25 +1490,34 @@ def preprocess_canvas_image(canvas_result):
 def du_doan():
     st.header("✍️ Vẽ dữ liệu để dự đoán cụm")
 
+    # Ensure st.session_state["models"] is a list
+    if "models" not in st.session_state or not isinstance(st.session_state["models"], list):
+        st.session_state["models"] = []
+        st.warning("⚠️ Danh sách mô hình trống! Hãy huấn luyện trước.")
+        return
+
     # Kiểm tra danh sách mô hình đã huấn luyện
-    if "models" not in st.session_state or not st.session_state["models"]:
+    if not st.session_state["models"]:
         st.warning("⚠️ Không có mô hình nào được lưu! Hãy huấn luyện trước.")
         return
 
-    # Lấy danh sách mô hình đã lưu
-    if "models" in st.session_state and isinstance(st.session_state["models"], dict):
-        model_names = list(st.session_state["models"].keys())  # Lấy danh sách tên mô hình
-    elif isinstance(st.session_state["models"], list):
-        model_names = [model["name"] for model in st.session_state["models"] if isinstance(model, dict)]
-    else:
-        model_names = []
+    # Lấy danh sách tên mô hình
+    model_names = [m["name"] for m in st.session_state["models"] if isinstance(m, dict)]
 
     # Kiểm tra danh sách có rỗng không
     if not model_names:
         st.warning("⚠️ Chưa có mô hình nào được huấn luyện.")
+        return
+
     # 📌 Chọn mô hình
     model_option = st.selectbox("🔍 Chọn mô hình đã huấn luyện:", model_names)
-    model = next(m["model"] for m in st.session_state["models"] if m["name"] == model_option)
+
+    # Tìm mô hình tương ứng
+    try:
+        model = next(m["model"] for m in st.session_state["models"] if isinstance(m, dict) and m["name"] == model_option)
+    except StopIteration:
+        st.error(f"⚠️ Không tìm thấy mô hình với tên {model_option}!")
+        return
 
     # 🆕 Cập nhật key cho canvas khi nhấn "Tải lại"
     if "key_value" not in st.session_state:
@@ -1530,7 +1550,7 @@ def du_doan():
             
             pca = PCA(n_components=2)
             pca.fit(X_train)
-            img_reduced = pca.transform(img.squeeze().reshape(1, -1))  # Sửa lỗi
+            img_reduced = pca.transform(img.reshape(1, -1))  # Đã sửa lỗi
 
             # Dự đoán với K-Means hoặc DBSCAN
             if isinstance(model, KMeans):
@@ -1548,28 +1568,30 @@ def du_doan():
         else:
             st.error("⚠️ Hãy vẽ một số trước khi bấm Dự đoán!")
 
-
 from datetime import datetime    
 import streamlit as st
 import mlflow
 from datetime import datetime
 
 def show_experiment_selector():
-    st.title("📊 MLflow")
-    
-    
-    mlflow.set_tracking_uri("https://dagshub.com/PTToan250303/Linear_replication.mlflow")
-    
+    st.title("📊 MLflow Experiments - DAGsHub")
+
     # Lấy danh sách tất cả experiments
-    experiment_name = "Clustering"
     experiments = mlflow.search_experiments()
-    selected_experiment = next((exp for exp in experiments if exp.name == experiment_name), None)
+    experiment_names = [exp.name for exp in experiments]    
+    # Tìm experiment theo tên
+    
+    selected_experiment_name = st.selectbox("🔍 Chọn một Experiment:", experiment_names)
+
+    if not selected_experiment_name:
+        st.error(f"❌ Experiment '{selected_experiment_name}' không tồn tại!")
+        return
+    selected_experiment = next((exp for exp in experiments if exp.name == selected_experiment_name), None)
 
     if not selected_experiment:
-        st.error(f"❌ Experiment '{experiment_name}' không tồn tại!")
+        st.error("❌ Không tìm thấy experiment trong danh sách.")
         return
-
-    st.subheader(f"📌 Experiment: {experiment_name}")
+    st.subheader(f"📌 Experiment: {selected_experiment_name}")
     st.write(f"**Experiment ID:** {selected_experiment.experiment_id}")
     st.write(f"**Trạng thái:** {'Active' if selected_experiment.lifecycle_stage == 'active' else 'Deleted'}")
     st.write(f"**Vị trí lưu trữ:** {selected_experiment.artifact_location}")
@@ -1582,22 +1604,26 @@ def show_experiment_selector():
         return
 
     st.write("### 🏃‍♂️ Các Runs gần đây:")
-    
+
     # Lấy danh sách run_name từ params
     run_info = []
     for _, run in runs.iterrows():
         run_id = run["run_id"]
         run_params = mlflow.get_run(run_id).data.params
-        run_name = run_params.get("run_name", f"Run {run_id[:8]}")
+        run_name = run_params.get("run_name", f"Run {run_id[:8]}")  # Nếu không có tên, lấy 8 ký tự đầu của ID
         run_info.append((run_name, run_id))
+    # Đảm bảo danh sách run_info được sắp xếp theo thời gian chạy gần nhất
+    run_info.sort(key=lambda x: mlflow.get_run(x[1]).info.start_time, reverse=True)
     
     # Tạo dictionary để map run_name -> run_id
-    run_name_to_id = dict(run_info)
-    run_names = list(run_name_to_id.keys())
-    
-    # Chọn run theo run_name
-    selected_run_name = st.selectbox("🔍 Chọn một run:", run_names)
-    selected_run_id = run_name_to_id[selected_run_name]
+    # Lấy run gần nhất
+    if run_info:
+        latest_run_name, latest_run_id = run_info[0]  # Chọn run mới nhất
+        selected_run_name = latest_run_name
+        selected_run_id = latest_run_id
+    else:
+        st.warning("⚠ Không có runs nào trong experiment này.")
+        return
 
     # Hiển thị thông tin chi tiết của run được chọn
     selected_run = mlflow.get_run(selected_run_id)
@@ -1606,13 +1632,14 @@ def show_experiment_selector():
         st.subheader(f"📌 Thông tin Run: {selected_run_name}")
         st.write(f"**Run ID:** {selected_run_id}")
         st.write(f"**Trạng thái:** {selected_run.info.status}")
-        
         start_time_ms = selected_run.info.start_time  # Thời gian lưu dưới dạng milliseconds
+
+        # Chuyển sang định dạng ngày giờ dễ đọc
         if start_time_ms:
             start_time = datetime.fromtimestamp(start_time_ms / 1000).strftime("%Y-%m-%d %H:%M:%S")
         else:
             start_time = "Không có thông tin"
-        
+
         st.write(f"**Thời gian chạy:** {start_time}")
 
         # Hiển thị thông số đã log
@@ -1627,35 +1654,29 @@ def show_experiment_selector():
             st.write("### 📊 Metrics:")
             st.json(metrics)
 
-        # Kiểm tra loại mô hình và hiển thị thông tin tương ứng
-        model_type = params.get("model", "Unknown")
-        if model_type == "K-Means":
-            st.write(f"🔹 **Mô hình:** K-Means")
-            st.write(f"🔢 **Số cụm (K):** {params.get('n_clusters', 'N/A')}")
-            st.write(f"🎯 **Độ chính xác:** {metrics.get('accuracy', 'N/A')}")
-        elif model_type == "DBSCAN":
-            st.write(f"🛠️ **Mô hình:** DBSCAN")
-            st.write(f"📏 **eps:** {params.get('eps', 'N/A')}")
-            st.write(f"👥 **Min Samples:** {params.get('min_samples', 'N/A')}")
-            st.write(f"🔍 **Số cụm tìm thấy:** {metrics.get('n_clusters_found', 'N/A')}")
-            st.write(f"🚨 **Tỉ lệ nhiễu:** {metrics.get('noise_ratio', 'N/A')}")
-
-        # Hiển thị model artifact
-        model_artifact_path = f"{selected_experiment.artifact_location}/{selected_run_id}/artifacts/{model_type.lower()}_model"
-        st.write("### 📂 Model Artifact:")
-        st.write(f"📥 [Tải mô hình]({model_artifact_path})")
-    else:
-        st.warning("⚠ Không tìm thấy thông tin cho run này.")
+        # Kiểm tra và hiển thị dataset artifact
+        dataset_uri = f"{selected_experiment.artifact_location}/{selected_run_id}/artifacts/dataset.csv" 
+        try:
+            mlflow.artifacts.download_artifacts(dataset_uri)
+            st.write("### 📂 Dataset:")
+            st.write(f"📥 [Tải dataset]({dataset_uri})")
+        except Exception as e:
+            st.warning("⚠ Không tìm thấy dataset.csv trong artifacts.")
 
 
 
 
 def ClusteringAlgorithms():
   
-
-    st.title("🖊️ MNIST Classification App")
-
-    
+    st.markdown("""
+            <style>
+            .title { font-size: 48px; font-weight: bold; text-align: center; color: #4682B4; margin-top: 50px; }
+            .subtitle { font-size: 24px; text-align: center; color: #4A4A4A; }
+            hr { border: 1px solid #ddd; }
+            </style>
+            <div class="title">MNIST Clustering Algorithms App</div>
+            <hr>
+        """, unsafe_allow_html=True)
     
    
     # === Sidebar để chọn trang ===

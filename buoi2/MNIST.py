@@ -1243,8 +1243,32 @@ def show_experiment_selector():
         except Exception as e:
             st.warning("⚠ Không tìm thấy dataset.csv trong artifacts.")
 
+
 def Classification():
-  
+    """#+
+    Main function for the MNIST Classification App.#+
+
+    This function sets up the MLflow tracking, initializes the Streamlit interface,#+
+    and creates tabs for different sections of the application including theory,#+
+    data visualization, model training, prediction, and MLflow experiment tracking.#+
+#+
+    The function performs the following tasks:#+
+    1. Initializes MLflow tracking if not already done.#+
+    2. Sets up the Streamlit interface with custom CSS.#+
+    3. Creates tabs for different sections of the app.#+
+    4. Calls appropriate functions for each tab.#+
+#+
+    Parameters:#+
+    None#+
+#+
+    Returns:#+
+    None#+
+#+
+    Note:#+
+    This function relies on several global variables and functions that should be#+
+    defined elsewhere in the code, such as ly_thuyet_Decision(), ly_thuyet_svm(),#+
+    data(), split_data(), train(), du_doan(), and show_experiment_selector().#+
+    """#+
     if "mlflow_initialized" not in st.session_state:   
         DAGSHUB_MLFLOW_URI = "https://dagshub.com/PTToan250303/Linear_replication.mlflow"
         mlflow.set_tracking_uri(DAGSHUB_MLFLOW_URI)
@@ -1275,35 +1299,34 @@ def Classification():
         <div class="title">MNIST Classification App</div>
         <hr>
     """, unsafe_allow_html=True)    
-    
-    #st.session_state.clear()
-    ### **Phần 1: Hiển thị dữ liệu MNIST**
-    
-    ### **Phần 2: Trình bày lý thuyết về Decision Tree & SVM*
-    
-    # 1️⃣ Phần giới thiệu
-    
-    # === Sidebar để chọn trang ==
-    # === Tạo Tabs ===
+
+    #st.session_state.clear()#-
+    ### **Phần 1: Hiển thị dữ liệu MNIST**#-
+#-
+    ### **Phần 2: Trình bày lý thuyết về Decision Tree & SVM*#-
+#-
+    # 1️⃣ Phần giới thiệu#-
+#-
+    # === Sidebar để chọn trang ==#-
+    # === Tạo Tabs ===#-
     tab1, tab2, tab3, tab4,tab5 ,tab6= st.tabs(["📘 Lý thuyết Decision Tree", "📘 Lý thuyết SVM", "📘 Data" ,"⚙️ Huấn luyện", "🔢 Dự đoán","🔥Mlflow"])
-    
+
     with tab1:
-          
+#-
         ly_thuyet_Decision()
     with tab2:
         ly_thuyet_svm()
     with tab3:
         data()
-        
+#-
     with tab4:  
         split_data()
         train()
     with tab5: 
         du_doan()   
     with tab6:
-        
-        show_experiment_selector()  
-
+#-
+        show_experiment_selector()
 
 
 
