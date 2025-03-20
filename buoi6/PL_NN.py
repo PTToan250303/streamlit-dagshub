@@ -87,8 +87,15 @@ import tensorflow
 from tensorflow import keras
 
 def train():
-   
-    num=0
+    # Khởi tạo các biến trong session_state nếu chưa có
+    if "training_results" not in st.session_state:
+        st.session_state["training_results"] = []  # Lưu kết quả huấn luyện của từng vòng lặp
+    if "prediction_images" not in st.session_state:
+        st.session_state["prediction_images"] = []  # Lưu hình ảnh dự đoán của từng vòng lặp
+    if "final_metrics" not in st.session_state:
+        st.session_state["final_metrics"] = {}  # Lưu độ chính xác cuối cùng
+
+    num = 0
     if "X_train" not in st.session_state:
         st.error("⚠️ Chưa có dữ liệu! Hãy chia dữ liệu trước.")
         return
@@ -110,7 +117,6 @@ def train():
     confidence_threshold = st.slider("✅ Ngưỡng tin cậy Pseudo Labeling (%):", min_value=50, max_value=99, value=95, step=1) / 100.0
 
     loss_fn = "sparse_categorical_crossentropy"
-    # Chỉ nhập tên Experiment (Không có phần nhập tên Run)
     if "experiment_name" not in st.session_state:
         st.session_state["experiment_name"] = "My_Experiment"
 
@@ -122,7 +128,37 @@ def train():
     mlflow.set_experiment(experiment_name)
     st.write(f"✅ Experiment Name: {experiment_name}")
     
+    # Hiển thị kết quả huấn luyện đã lưu (nếu có) khi chuyển tab
+    if st.session_state["training_results"]:
+        st.subheader("Kết quả huấn luyện trước đó:")
+        for result in st.session_state["training_results"]:
+            st.write(f"**Vòng lặp {result['iteration']}:**")
+            st.write(f"- Số pseudo labels mới thêm: {result['num_pseudo_added']}")
+            st.write(f"- Tổng số pseudo labels: {result['total_pseudo_labels']}")
+            st.write(f"- Số lượng dữ liệu chưa gán nhãn còn lại: {result['remaining_unlabeled']}")
+            st.write(f"- **Độ chính xác trên tập test:** {result['test_accuracy']:.4f}")
+            st.write("---")
+
+    # Hiển thị hình ảnh dự đoán đã lưu (nếu có) khi chuyển tab
+    if st.session_state["prediction_images"]:
+        for img_data in st.session_state["prediction_images"]:
+            st.subheader(f"Dự đoán 10 ảnh từ tập test sau vòng lặp {img_data['iteration']}")
+            st.pyplot(img_data["figure"])
+
+    # Hiển thị độ chính xác cuối cùng đã lưu (nếu có) khi chuyển tab
+    if st.session_state["final_metrics"]:
+        st.success(f"✅ Huấn luyện hoàn tất!")
+        st.write(f"📊 **Độ chính xác trung bình trên tập validation:** {st.session_state['final_metrics']['avg_val_accuracy']:.4f}")
+        st.write(f"📊 **Độ chính xác trên tập test:** {st.session_state['final_metrics']['test_accuracy']:.4f}")
+        st.success(f"✅ Đã log dữ liệu cho Experiments Neural_Network với Name: **Train_{st.session_state['run_name']}**!")
+        st.markdown(f"🔗 [Truy cập MLflow UI]({st.session_state['mlflow_url']})")
+
     if st.button("🚀 Huấn luyện mô hình"):
+        # Reset kết quả trước đó khi bắt đầu huấn luyện mới
+        st.session_state["training_results"] = []
+        st.session_state["prediction_images"] = []
+        st.session_state["final_metrics"] = {}
+
         if "run_name" not in st.session_state:
             st.session_state["run_name"] = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}" 
         with st.spinner("Đang huấn luyện..."):
@@ -209,9 +245,17 @@ def train():
                 y_labeled = np.concatenate([y_labeled, pseudo_labels[confident_mask]])
                 X_unlabeled = X_unlabeled[~confident_mask]
 
-                    # Đánh giá mô hình trên tập validation và test sau khi gán nhãn giả
-                    #val_loss, val_accuracy = model.evaluate(X_val, y_val, verbose=0)
+                # Đánh giá mô hình trên tập test sau khi gán nhãn giả
                 test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+
+                # Lưu kết quả huấn luyện vào session_state
+                st.session_state["training_results"].append({
+                    "iteration": iteration + 1,
+                    "num_pseudo_added": num_pseudo_added,
+                    "total_pseudo_labels": total_pseudo_labels,
+                    "remaining_unlabeled": len(X_unlabeled),
+                    "test_accuracy": test_accuracy
+                })
 
                 st.write(f"**Vòng lặp {iteration+1}:**")
                 st.write(f"- Số pseudo labels mới thêm: {num_pseudo_added}")
@@ -220,9 +264,32 @@ def train():
                 st.write(f"- **Độ chính xác trên tập test:** {test_accuracy:.4f}")
                 st.write("---")
 
-                    # Lưu độ chính xác vào MLflow để theo dõi
+                # Dự đoán và hiển thị 10 ảnh từ tập test
+                st.subheader(f"Dự đoán 10 ảnh từ tập test sau vòng lặp {iteration+1}")
+                indices = np.random.choice(len(X_test), 10, replace=False)
+                X_test_samples = X_test[indices]
+                y_test_samples = y_test[indices]
+
+                predictions = model.predict(X_test_samples)
+                predicted_labels = np.argmax(predictions, axis=1)
+
+                fig, axes = plt.subplots(2, 5, figsize=(15, 6))
+                axes = axes.ravel()
+                for i in range(10):
+                    axes[i].imshow(X_test_samples[i].reshape(28, 28), cmap='gray')
+                    axes[i].set_title(f"Thực tế: {y_test_samples[i]}\nDự đoán: {predicted_labels[i]}")
+                    axes[i].axis('off')
+                plt.tight_layout()
+
+                # Lưu hình ảnh dự đoán vào session_state
+                st.session_state["prediction_images"].append({
+                    "iteration": iteration + 1,
+                    "figure": fig
+                })
+                st.pyplot(fig)
+
+                # Lưu độ chính xác vào MLflow để theo dõi
                 mlflow.log_metrics({
-                        # f"val_accuracy_iter_{iteration+1}": val_accuracy,
                     f"test_accuracy_iter_{iteration+1}": test_accuracy
                 })
                 if len(X_unlabeled) == 0:
@@ -230,6 +297,12 @@ def train():
 
             test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
             mlflow.log_metrics({"test_accuracy": test_accuracy, "test_loss": test_loss})
+
+            # Lưu độ chính xác cuối cùng vào session_state
+            st.session_state["final_metrics"] = {
+                "avg_val_accuracy": avg_val_accuracy,
+                "test_accuracy": test_accuracy
+            }
 
             mlflow.end_run()
             st.session_state["trained_model"] = model
@@ -244,8 +317,6 @@ def train():
        
             st.success(f"✅ Đã log dữ liệu cho Experiments Neural_Network với Name: **Train_{st.session_state['run_name']}**!")
             st.markdown(f"🔗 [Truy cập MLflow UI]({st.session_state['mlflow_url']})")
-
-
         
 # Xử lý ảnh từ canvas
 def preprocess_canvas_image(canvas_result):
