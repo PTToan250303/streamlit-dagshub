@@ -91,7 +91,7 @@ def train():
     if "training_results" not in st.session_state:
         st.session_state["training_results"] = []  # Lưu kết quả huấn luyện của từng vòng lặp
     if "prediction_images" not in st.session_state:
-        st.session_state["prediction_images"] = []  # Lưu hình ảnh dự đoán của từng vòng lặp
+        st.session_state["prediction_images"] = []  # Lưu hình ảnh dự đoán và thông tin đúng/sai của từng vòng lặp
     if "final_metrics" not in st.session_state:
         st.session_state["final_metrics"] = {}  # Lưu độ chính xác cuối cùng
 
@@ -133,17 +133,26 @@ def train():
         st.subheader("Kết quả huấn luyện trước đó:")
         for result in st.session_state["training_results"]:
             st.write(f"**Vòng lặp {result['iteration']}:**")
-            st.write(f"- Số pseudo labels mới thêm: {result['num_pseudo_added']}")
-            st.write(f"- Tổng số pseudo labels: {result['total_pseudo_labels']}")
-            st.write(f"- Số lượng dữ liệu chưa gán nhãn còn lại: {result['remaining_unlabeled']}")
+            st.write(f"- **Gán nhãn giả cho {result['num_pseudo_added']} mẫu với độ tin cậy ≥ {confidence_threshold}:**")
+            st.write(f"  - Số nhãn giả đúng: {result['correct_pseudo_labels']}")
+            st.write(f"  - Số nhãn giả sai: {result['incorrect_pseudo_labels']}")
+            st.write(f"- **Số ảnh đã gán nhãn:** {result['total_labeled']}")
+            st.write(f"- **Số ảnh chưa gán nhãn:** {result['remaining_unlabeled']}")
             st.write(f"- **Độ chính xác trên tập test:** {result['test_accuracy']:.4f}")
+            # Tìm thông tin số lượng nhãn đúng/sai tương ứng với vòng lặp
+            for img_data in st.session_state["prediction_images"]:
+                if img_data["iteration"] == result["iteration"]:
+                    st.write(f"- **Số lượng nhãn dự đoán đúng (trong 10 ảnh):** {img_data['correct_predictions']}")
+                    st.write(f"- **Số lượng nhãn dự đoán sai (trong 10 ảnh):** {img_data['incorrect_predictions']}")
             st.write("---")
 
-    # Hiển thị hình ảnh dự đoán đã lưu (nếu có) khi chuyển tab
+    # Hiển thị hình ảnh dự đoán và thông tin đúng/sai đã lưu (nếu có) khi chuyển tab
     if st.session_state["prediction_images"]:
         for img_data in st.session_state["prediction_images"]:
             st.subheader(f"Dự đoán 10 ảnh từ tập test sau vòng lặp {img_data['iteration']}")
             st.pyplot(img_data["figure"])
+            st.write(f"- **Số lượng nhãn dự đoán đúng:** {img_data['correct_predictions']}")
+            st.write(f"- **Số lượng nhãn dự đoán sai:** {img_data['incorrect_predictions']}")
 
     # Hiển thị độ chính xác cuối cùng đã lưu (nếu có) khi chuyển tab
     if st.session_state["final_metrics"]:
@@ -182,6 +191,7 @@ def train():
 
             X_labeled, y_labeled = X_train[labeled_idx], y_train[labeled_idx]
             X_unlabeled = X_train[unlabeled_idx]
+            y_unlabeled_true = y_train[unlabeled_idx]  # Lấy nhãn thực tế của dữ liệu chưa có nhãn để so sánh
 
             total_pseudo_labels = 0  # Tổng số nhãn giả được thêm vào
             for iteration in range(max_iterations):
@@ -241,9 +251,16 @@ def train():
                 num_pseudo_added = np.sum(confident_mask)
                 total_pseudo_labels += num_pseudo_added
 
+                # Tính số nhãn giả đúng và sai
+                pseudo_labels_confident = pseudo_labels[confident_mask]
+                y_unlabeled_true_confident = y_unlabeled_true[confident_mask]
+                correct_pseudo_labels = np.sum(pseudo_labels_confident == y_unlabeled_true_confident)
+                incorrect_pseudo_labels = num_pseudo_added - correct_pseudo_labels
+
                 X_labeled = np.concatenate([X_labeled, X_unlabeled[confident_mask]])
                 y_labeled = np.concatenate([y_labeled, pseudo_labels[confident_mask]])
                 X_unlabeled = X_unlabeled[~confident_mask]
+                y_unlabeled_true = y_unlabeled_true[~confident_mask]  # Cập nhật nhãn thực tế của dữ liệu chưa có nhãn
 
                 # Đánh giá mô hình trên tập test sau khi gán nhãn giả
                 test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
@@ -252,17 +269,21 @@ def train():
                 st.session_state["training_results"].append({
                     "iteration": iteration + 1,
                     "num_pseudo_added": num_pseudo_added,
+                    "correct_pseudo_labels": correct_pseudo_labels,
+                    "incorrect_pseudo_labels": incorrect_pseudo_labels,
+                    "total_labeled": len(X_labeled),
                     "total_pseudo_labels": total_pseudo_labels,
                     "remaining_unlabeled": len(X_unlabeled),
                     "test_accuracy": test_accuracy
                 })
 
                 st.write(f"**Vòng lặp {iteration+1}:**")
-                st.write(f"- Số pseudo labels mới thêm: {num_pseudo_added}")
-                st.write(f"- Tổng số pseudo labels: {total_pseudo_labels}")
-                st.write(f"- Số lượng dữ liệu chưa gán nhãn còn lại: {len(X_unlabeled)}")
+                st.write(f"- **Gán nhãn giả cho {num_pseudo_added} mẫu với độ tin cậy ≥ {confidence_threshold}:**")
+                st.write(f"  - Số nhãn giả đúng: {correct_pseudo_labels}")
+                st.write(f"  - Số nhãn giả sai: {incorrect_pseudo_labels}")
+                st.write(f"- **Số ảnh đã gán nhãn:** {len(X_labeled)}")
+                st.write(f"- **Số ảnh chưa gán nhãn:** {len(X_unlabeled)}")
                 st.write(f"- **Độ chính xác trên tập test:** {test_accuracy:.4f}")
-                st.write("---")
 
                 # Dự đoán và hiển thị 10 ảnh từ tập test
                 st.subheader(f"Dự đoán 10 ảnh từ tập test sau vòng lặp {iteration+1}")
@@ -273,6 +294,15 @@ def train():
                 predictions = model.predict(X_test_samples)
                 predicted_labels = np.argmax(predictions, axis=1)
 
+                # Tính số lượng nhãn dự đoán đúng và sai
+                correct_predictions = np.sum(predicted_labels == y_test_samples)
+                incorrect_predictions = len(y_test_samples) - correct_predictions
+
+                # Hiển thị số lượng nhãn dự đoán đúng và sai trong kết quả vòng lặp
+                st.write(f"- **Số lượng nhãn dự đoán đúng (trong 10 ảnh):** {correct_predictions}")
+                st.write(f"- **Số lượng nhãn dự đoán sai (trong 10 ảnh):** {incorrect_predictions}")
+                st.write("---")
+
                 fig, axes = plt.subplots(2, 5, figsize=(15, 6))
                 axes = axes.ravel()
                 for i in range(10):
@@ -281,16 +311,22 @@ def train():
                     axes[i].axis('off')
                 plt.tight_layout()
 
-                # Lưu hình ảnh dự đoán vào session_state
+                # Lưu hình ảnh dự đoán và thông tin đúng/sai vào session_state
                 st.session_state["prediction_images"].append({
                     "iteration": iteration + 1,
-                    "figure": fig
+                    "figure": fig,
+                    "correct_predictions": correct_predictions,
+                    "incorrect_predictions": incorrect_predictions
                 })
                 st.pyplot(fig)
 
                 # Lưu độ chính xác vào MLflow để theo dõi
                 mlflow.log_metrics({
-                    f"test_accuracy_iter_{iteration+1}": test_accuracy
+                    f"test_accuracy_iter_{iteration+1}": test_accuracy,
+                    f"correct_predictions_iter_{iteration+1}": correct_predictions,
+                    f"incorrect_predictions_iter_{iteration+1}": incorrect_predictions,
+                    f"correct_pseudo_labels_iter_{iteration+1}": correct_pseudo_labels,
+                    f"incorrect_pseudo_labels_iter_{iteration+1}": incorrect_pseudo_labels
                 })
                 if len(X_unlabeled) == 0:
                     break
@@ -312,12 +348,11 @@ def train():
             training_status.text("✅ Huấn luyện hoàn tất!")
 
             st.success(f"✅ Huấn luyện hoàn tất!")
-            st.write(f"📊 **Độ chính xác trung bình trên tập validation:** {avg_val_accuracy:.4f}")
+    
             st.write(f"📊 **Độ chính xác trên tập test:** {test_accuracy:.4f}")
        
             st.success(f"✅ Đã log dữ liệu cho Experiments Neural_Network với Name: **Train_{st.session_state['run_name']}**!")
             st.markdown(f"🔗 [Truy cập MLflow UI]({st.session_state['mlflow_url']})")
-        
 # Xử lý ảnh từ canvas
 def preprocess_canvas_image(canvas_result):
     """Chuyển đổi ảnh từ canvas sang định dạng phù hợp để dự đoán."""
