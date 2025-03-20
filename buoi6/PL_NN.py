@@ -97,7 +97,7 @@ def train():
     y_train, y_val, y_test = [st.session_state[k] for k in ["y_train", "y_val", "y_test"]]
     
     k_folds = st.slider("Số fold cho Cross-Validation:", 3, 10, 5)
-    num_layers = st.slider("Số lớp ẩn:", 1, 5, 2)
+    num_layers = st.slider("Số lớp ẩn:", 1, 20, 2)
     num_neurons = st.slider("Số neuron mỗi lớp:", 32, 512, 128, 32)
     activation = st.selectbox("Hàm kích hoạt:", ["relu", "sigmoid", "tanh"])
     optimizer = st.selectbox("Optimizer:", ["adam", "sgd", "rmsprop"])
